@@ -156,7 +156,7 @@ const renderApp = () => {
   // render faucet ui
   render([
     h("nav.navbar.navbar-default", [
-      h("h1.container-fluid", "SAFE Token Faucet")
+      h("h1.container-fluid", "Quantstamp Test DAI Faucet")
     ]),
 
     h("section.container", [
@@ -167,7 +167,7 @@ const renderApp = () => {
           h("div", "balance: " + formatBalance(state.faucetBalance)),
           h(
             "button.btn.btn-success",
-            `request ${config.amount} SAFE from faucet`,
+            `request ${config.amount} Test DAI from faucet`,
             {
               style: {
                 margin: "4px"
@@ -227,12 +227,14 @@ const renderApp = () => {
             }
           },
           state.transactions.map(txHash => {
-            if(txHash.type === 'in')  {
-              return link(`https://ropsten.etherscan.io/tx/${txHash.hash}`, `100 SAFE is on its way to your account | See the following tx for details: ${txHash.hash}`)
+            if (txHash.type === "in") {
+              return link(
+                `https://ropsten.etherscan.io/tx/${txHash.hash}`,
+                `100 SAFE is on its way to your account | See the following tx for details: ${txHash.hash}`
+              )
             } else {
               return link(`https://ropsten.etherscan.io/tx/${txHash}`, txHash)
             }
-          
           })
         )
       ])
