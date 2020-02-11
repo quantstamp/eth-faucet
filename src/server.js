@@ -98,13 +98,11 @@ const startServer = appCode => {
 
       if (balanceTooFull) {
         console.log(
-          `[FAUCET] ${requestorMessage} - already has too many Test DAI tokens`
+          `[FAUCET] ${requestorMessage} - already has too many Test DAI`
         )
         return didError(
           res,
-          new Error(
-            "[FAUCET] User is greedy - already has too many Test DAI tokens"
-          )
+          new Error("[FAUCET] User is greedy - already has too many Test DAI")
         )
       }
 
