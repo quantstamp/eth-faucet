@@ -161,7 +161,7 @@ const renderApp = () => {
 
     h("section.container", [
       h("div.panel.panel-default", [
-        h("div.panel-heading", [h("h3", "faucet")]),
+        h("div.panel-heading", [h("h3", "Faucet")]),
         h("div.panel-body", [
           h("div", "address: " + state.faucetAddress),
           h("div", "balance: " + formatBalance(state.faucetBalance)),
@@ -180,7 +180,7 @@ const renderApp = () => {
       ]),
 
       h("div.panel.panel-default", [
-        h("div.panel-heading", [h("h3", "user")]),
+        h("div.panel-heading", [h("h3", "User")]),
         h("div.panel-body", [
           h("div", "address: " + state.userAddress),
           h("div", "balance: " + formatBalance(state.fromBalance)),
