@@ -1,5 +1,5 @@
-const dotenv = require("dotenv")
-dotenv.config()
+const dotenv = require("dotenv");
+dotenv.config();
 
 module.exports = {
   ropsten: {
@@ -11,4 +11,4 @@ module.exports = {
     gas: 100000,
     maxBalance: 1000
   }
-}
+};
