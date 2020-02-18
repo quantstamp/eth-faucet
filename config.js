@@ -1,4 +1,4 @@
-const dotenv = require('dotenv');
+const dotenv = require("dotenv");
 dotenv.config();
 
 module.exports = {
@@ -8,7 +8,7 @@ module.exports = {
     tokenAddress: process.env.TOKEN_ADDRESS,
     amount: 100,
     decimals: 18,
-    gas: 60000,
+    gas: 20000,
     maxBalance: 1000
   }
 };

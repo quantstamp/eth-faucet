@@ -1,19 +1,19 @@
-const h = require("h")
-const xhr = require("xhr")
-const EthQuery = require("eth-query")
-const metamask = require("metamascara")
-const config = require("./get-config")
-const safeToken = require("../safe_token_abi")
-const { getSafeTokenInWallet } = require("./helpers/blockchain")
-const Web3 = require("web3")
-let web3, contract
+const h = require("h");
+const xhr = require("xhr");
+const EthQuery = require("eth-query");
+const metamask = require("metamascara");
+const config = require("./get-config");
+const safeToken = require("../safe_token_abi");
+const { getSafeTokenInWallet } = require("./helpers/blockchain");
+const Web3 = require("web3");
+let web3, contract;
 
-const REFRESH_INTERVAL_MS = 4000
+const REFRESH_INTERVAL_MS = 4000;
 
-web3 = new Web3(Web3.givenProvider)
+web3 = new Web3(Web3.givenProvider);
 contract = new web3.eth.Contract(safeToken, config.tokenAddress, {
   from: config.address
-})
+});
 
 let state = {
   isLoading: true,
@@ -27,64 +27,64 @@ let state = {
   errorMessage: null,
 
   transactions: []
-}
+};
 
 const startApp = () => {
   // check environment
   if (!global.web3) {
     // abort
     if (!window.ENABLE_MASCARA) {
-      render(h("span", "No web3 detected."))
-      return
+      render(h("span", "No web3 detected."));
+      return;
     }
     // start mascara
-    const provider = metamask.createDefaultProvider({})
-    global.web3 = { currentProvider: provider }
+    const provider = metamask.createDefaultProvider({});
+    global.web3 = { currentProvider: provider };
   }
 
   // create query helper
-  const provider = global.web3.currentProvider
-  global.ethQuery = new EthQuery(provider)
-  global.provider = provider
+  const provider = global.web3.currentProvider;
+  global.ethQuery = new EthQuery(provider);
+  global.provider = provider;
 
-  renderApp()
-  updateStateFromNetwork()
-  setInterval(updateStateFromNetwork, REFRESH_INTERVAL_MS)
-}
+  renderApp();
+  updateStateFromNetwork();
+  setInterval(updateStateFromNetwork, REFRESH_INTERVAL_MS);
+};
 
-window.addEventListener("load", startApp)
+window.addEventListener("load", startApp);
 
 const updateStateFromNetwork = () => {
-  getNetwork()
-  getAccounts()
-  getBalances()
-  renderApp()
-}
+  getNetwork();
+  getAccounts();
+  getBalances();
+  renderApp();
+};
 
 const getNetwork = () => {
   global.provider.sendAsync(
     { id: 1, jsonrpc: "2.0", method: "net_version" },
     (err, res) => {
-      if (err) return console.error(err)
-      if (res.error) return console.res.error(res.error)
-      var network = res.result
-      state.network = network
-      renderApp()
+      if (err) return console.error(err);
+      if (res.error) return console.res.error(res.error);
+      var network = res.result;
+      state.network = network;
+      renderApp();
     }
-  )
-}
+  );
+};
 
 const getAccounts = () => {
   global.ethQuery.accounts((err, accounts) => {
-    if (err) return console.error(err)
-    const address = accounts[0]
-    if (state.userAddress === address) return
-    state.userAddress = address
-    state.fromBalance = null
-    getBalances()
-    renderApp()
-  })
-}
+    if (err) return console.error(err);
+    const address = accounts[0];
+    if (state.userAddress === address) return;
+    state.userAddress = address;
+    state.fromBalance = null;
+    getBalances();
+    renderApp();
+  });
+};
 
 /*
  * The big new method added for EIP-1102 privacy mode compatibility.
@@ -92,47 +92,47 @@ const getAccounts = () => {
  * https://medium.com/metamask/eip-1102-preparing-your-dapp-5027b2c9ed76
  */
 const requestAccounts = () => {
-  const provider = global.web3.currentProvider
+  const provider = global.web3.currentProvider;
   if ("enable" in global.web3.currentProvider) {
     return provider
       .enable()
       .then(accounts => {
-        getAccounts()
-        return accounts[0]
+        getAccounts();
+        return accounts[0];
       })
       .catch(err => {
         alert(
           "Your web3 account is currently locked. Please unlock it to continue."
-        )
-      })
+        );
+      });
   } else {
     // Fallback to old way if no privacy mode available
     if (state.userAddress) {
-      return Promise.resolve(state.userAddress)
+      return Promise.resolve(state.userAddress);
     } else {
       alert(
         "Your web3 account is currently locked. Please unlock it to continue."
-      )
-      return Promise.reject()
+      );
+      return Promise.reject();
     }
   }
-}
+};
 
 const getBalances = () => {
   if (state.faucetAddress) {
     getSafeTokenInWallet(state.faucetAddress).then(balance => {
-      state.faucetBalance = balance
-      renderApp()
-    })
+      state.faucetBalance = balance;
+      renderApp();
+    });
   }
 
   if (state.userAddress) {
     getSafeTokenInWallet(state.userAddress).then(balance => {
-      state.fromBalance = balance
-      renderApp()
-    })
+      state.fromBalance = balance;
+      renderApp();
+    });
   }
-}
+};
 
 const renderApp = () => {
   // if (state.isLoading) {
@@ -150,7 +150,7 @@ const renderApp = () => {
           ])
         ])
       ])
-    ])
+    ]);
   }
 
   // render faucet ui
@@ -231,9 +231,9 @@ const renderApp = () => {
               return link(
                 `https://ropsten.etherscan.io/tx/${txHash.hash}`,
                 `100 Test DAI is on its way to your account | See the following tx for details: ${txHash.hash}`
-              )
+              );
             } else {
-              return link(`https://ropsten.etherscan.io/tx/${txHash}`, txHash)
+              return link(`https://ropsten.etherscan.io/tx/${txHash}`, txHash);
             }
           })
         )
@@ -242,21 +242,21 @@ const renderApp = () => {
     state.errorMessage
       ? h("div", { style: { color: "red" } }, state.errorMessage)
       : null
-  ])
-}
+  ]);
+};
 
 function link(url, content) {
-  return h("a", { href: url, target: "_blank" }, content)
+  return h("a", { href: url, target: "_blank" }, content);
 }
 
 const getSafe = () => {
   requestAccounts().then(account => {
     // We already prompted to unlock in requestAccounts()
-    if (!account) return
+    if (!account) return;
 
-    const uri = window.location.href
-    const http = new XMLHttpRequest()
-    const data = account
+    const uri = window.location.href;
+    const http = new XMLHttpRequest();
+    const data = account;
 
     xhr(
       {
@@ -270,59 +270,59 @@ const getSafe = () => {
       (err, resp, body) => {
         // display error
         if (err) {
-          state.errorMessage = err || err.stack
-          return
+          state.errorMessage = err || err.stack;
+          return;
         }
         // display error-in-body
         try {
           if (body.slice(0, 2) === "0x") {
-            state.transactions.push({ hash: body, type: "in" })
+            state.transactions.push({ hash: body, type: "in" });
           } else {
-            state.errorMessage = body
+            state.errorMessage = body;
           }
         } catch (err) {
-          state.errorMessage = err || err.stack
+          state.errorMessage = err || err.stack;
         }
         // display tx hash
-        console.log("faucet response:", body)
-        updateStateFromNetwork()
+        console.log("faucet response:", body);
+        updateStateFromNetwork();
       }
-    )
-  })
-}
+    );
+  });
+};
 
 const sendTx = amount => {
   requestAccounts().then(address => {
-    if (!address) return
+    if (!address) return;
 
-    const safeAmountWei = web3.utils.toWei(amount.toString(), "ether")
+    const safeAmountWei = web3.utils.toWei(amount.toString(), "ether");
 
     contract.methods
       .transfer(state.faucetAddress, safeAmountWei.toString())
       .send({ from: state.userAddress })
       .on("transactionHash", txHash => {
-        console.log("user sent tx:", txHash)
-        state.errorMessage = null
-        state.transactions.push(txHash)
+        console.log("user sent tx:", txHash);
+        state.errorMessage = null;
+        state.transactions.push(txHash);
       })
       .on("error", err => {
-        state.errorMessage = err
-      })
-    updateStateFromNetwork()
-  })
-}
+        state.errorMessage = err;
+      });
+    updateStateFromNetwork();
+  });
+};
 
 const render = elements => {
-  if (!Array.isArray(elements)) elements = [elements]
-  elements = elements.filter(Boolean)
+  if (!Array.isArray(elements)) elements = [elements];
+  elements = elements.filter(Boolean);
   // clear
-  document.body.innerHTML = ""
+  document.body.innerHTML = "";
   // insert
   elements.forEach(function(element) {
-    document.body.appendChild(element)
-  })
-}
+    document.body.appendChild(element);
+  });
+};
 
 const formatBalance = balance => {
-  return balance ? balance + " Test DAI" : "..."
-}
+  return balance ? balance + " Test DAI" : "...";
+};
