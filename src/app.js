@@ -295,10 +295,10 @@ const sendTx = amount => {
   requestAccounts().then(address => {
     if (!address) return;
 
-    const safeAmountWei = web3.utils.toWei(amount.toString(), "ether");
+    const daiAmountWei = web3.utils.toWei(amount.toString(), "ether");
 
     contract.methods
-      .transfer(state.faucetAddress, safeAmountWei.toString())
+      .transfer(state.faucetAddress, daiAmountWei.toString())
       .send({ from: state.userAddress })
       .on("transactionHash", txHash => {
         console.log("user sent tx:", txHash);

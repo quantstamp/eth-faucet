@@ -70,7 +70,7 @@ const getBalance = (contract, walletAddress) =>
   contract.methods
     .balanceOf(walletAddress)
     .call()
-    .then(safe => safe);
+    .then(dai => dai);
 
 module.exports = {
   refuelAccount,
