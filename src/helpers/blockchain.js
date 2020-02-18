@@ -5,7 +5,7 @@ const config = require("../get-config")
 let web3, nonce
 web3 = new Web3(new Web3.providers.HttpProvider(config.rpcOrigin))
 
-const safeContract = new web3.eth.Contract(daiToken, config.tokenAddress)
+const daiContract = new web3.eth.Contract(daiToken, config.tokenAddress)
 console.log(`[WEB3] Contract initialized at ${config.tokenAddress}`)
 
 // sends some tokens to the given account <userAddr>, invokes the given callback with the resulting transaction hash
@@ -26,7 +26,7 @@ const refuelAccount = async (faucetAmountWei, userAddr, callback) => {
     from: config.address,
     to: config.tokenAddress,
     nonce,
-    data: safeContract.methods
+    data: daiContract.methods
       .transfer(userAddr, web3.utils.toBN(faucetAmountWei).toString())
       .encodeABI(),
     gas: config.gas
