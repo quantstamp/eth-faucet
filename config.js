@@ -1,5 +1,5 @@
-const dotenv = require("dotenv");
-dotenv.config();
+const dotenv = require("dotenv")
+dotenv.config()
 
 module.exports = {
   ropsten: {
@@ -8,7 +8,7 @@ module.exports = {
     tokenAddress: process.env.TOKEN_ADDRESS,
     amount: 100,
     decimals: 18,
-    gas: 20000,
+    gas: 100000,
     maxBalance: 1000
   }
-};
+}
