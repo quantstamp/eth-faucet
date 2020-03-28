@@ -1,9 +1,21 @@
-const h = require('h')
-const xhr = require('xhr')
-const EthQuery = require('eth-query')
-const metamask = require('metamascara')
+const h = require("h");
+const xhr = require("xhr");
+const EthQuery = require("eth-query");
+const metamask = require("metamascara");
+const config = require("./get-config");
+const daiToken = require("../dai_token_abi");
+const { getDaiTokenInWallet } = require("./helpers/blockchain");
+const Web3 = require("web3");
+let web3, contract;
 
-var state = {
+const REFRESH_INTERVAL_MS = 4000;
+
+web3 = new Web3(Web3.givenProvider);
+contract = new web3.eth.Contract(daiToken, config.tokenAddress, {
+  from: config.address
+});
+
+let state = {
   isLoading: true,
 
   // injected at build time
@@ -14,288 +26,303 @@ var state = {
   fromBalance: null,
   errorMessage: null,
 
-  transactions: [],
-}
+  transactions: []
+};
 
-window.addEventListener('load', startApp)
-
-
-function startApp(){
+const startApp = () => {
   // check environment
   if (!global.web3) {
     // abort
     if (!window.ENABLE_MASCARA) {
-      render(h('span', 'No web3 detected.'))
-      return
+      render(h("span", "No web3 detected."));
+      return;
     }
     // start mascara
-    const provider = metamask.createDefaultProvider({})
-    global.web3 = { currentProvider: provider }
+    const provider = metamask.createDefaultProvider({});
+    global.web3 = { currentProvider: provider };
   }
 
   // create query helper
-  const provider = global.web3.currentProvider
-  global.ethQuery = new EthQuery(provider)
-  global.provider = provider
+  const provider = global.web3.currentProvider;
+  global.ethQuery = new EthQuery(provider);
+  global.provider = provider;
 
-  renderApp()
-  updateStateFromNetwork()
-  setInterval(updateStateFromNetwork, 4000)
-}
+  renderApp();
+  updateStateFromNetwork();
+  setInterval(updateStateFromNetwork, REFRESH_INTERVAL_MS);
+};
 
-function updateStateFromNetwork(){
-  getNetwork()
-  getAccounts()
-  getBalances()
-  renderApp()
-}
+window.addEventListener("load", startApp);
 
-function getNetwork(){
-  global.provider.sendAsync({ id: 1, jsonrpc: '2.0', method: 'net_version' }, function(err, res){
-    if (err) return console.error(err)
-    if (res.error) return console.res.error(res.error)
-    var network = res.result
-    state.network = network
-    renderApp()
-  })
-}
+const updateStateFromNetwork = () => {
+  getNetwork();
+  getAccounts();
+  getBalances();
+  renderApp();
+};
 
-function getAccounts(){
-  global.ethQuery.accounts(function(err, accounts){
-    if (err) return console.error(err)
-    var address = accounts[0]
-    if (state.userAddress === address) return
-    state.userAddress = address
-    state.fromBalance = null
-    getBalances()
-    renderApp()
-  })
-}
+const getNetwork = () => {
+  global.provider.sendAsync(
+    { id: 1, jsonrpc: "2.0", method: "net_version" },
+    (err, res) => {
+      if (err) return console.error(err);
+      if (res.error) return console.res.error(res.error);
+      var network = res.result;
+      state.network = network;
+      renderApp();
+    }
+  );
+};
+
+const getAccounts = () => {
+  global.ethQuery.accounts((err, accounts) => {
+    if (err) return console.error(err);
+    const address = accounts[0];
+    if (state.userAddress === address) return;
+    state.userAddress = address;
+    state.fromBalance = null;
+    getBalances();
+    renderApp();
+  });
+};
 
 /*
  * The big new method added for EIP-1102 privacy mode compatibility.
  * Read more here:
  * https://medium.com/metamask/eip-1102-preparing-your-dapp-5027b2c9ed76
  */
-function requestAccounts() {
-  const provider = global.web3.currentProvider
-  if ('enable' in global.web3.currentProvider) {
-    return provider.enable()
-    .then((accounts) => {
-      getAccounts()
-      return accounts[0]
-    })
-    .catch((err) => {
-      alert('Your web3 account is currently locked. Please unlock it to continue.')
-    })
+const requestAccounts = () => {
+  const provider = global.web3.currentProvider;
+  if ("enable" in global.web3.currentProvider) {
+    return provider
+      .enable()
+      .then(accounts => {
+        getAccounts();
+        return accounts[0];
+      })
+      .catch(err => {
+        alert(
+          "Your web3 account is currently locked. Please unlock it to continue."
+        );
+      });
   } else {
     // Fallback to old way if no privacy mode available
-    if(state.userAddress){
+    if (state.userAddress) {
       return Promise.resolve(state.userAddress);
     } else {
-      alert('Your web3 account is currently locked. Please unlock it to continue.')
-      return Promise.reject()
+      alert(
+        "Your web3 account is currently locked. Please unlock it to continue."
+      );
+      return Promise.reject();
     }
   }
-}
+};
 
-function getBalances(){
-  if (state.faucetAddress) global.ethQuery.getBalance(state.faucetAddress, function(err, result){
-    if (err) return console.error(err)
-    state.faucetBalance = (parseInt(result, 16)/1e18).toFixed(2)
-    renderApp()
-  })
+const getBalances = () => {
+  if (state.faucetAddress) {
+    getDaiTokenInWallet(state.faucetAddress).then(balance => {
+      state.faucetBalance = balance;
+      renderApp();
+    });
+  }
 
-  if (state.userAddress) global.ethQuery.getBalance(state.userAddress, function(err, result){
-    if (err) return console.error(err)
-    state.fromBalance = (parseInt(result, 16)/1e18).toFixed(2)
-    renderApp()
-  })
-}
+  if (state.userAddress) {
+    getDaiTokenInWallet(state.userAddress).then(balance => {
+      state.fromBalance = balance;
+      renderApp();
+    });
+  }
+};
 
-function renderApp(){
+const renderApp = () => {
   // if (state.isLoading) {
   //   return render(h('span', 'web3 detected - Loading...'))
   // }
 
   // render wrong network warning
-  if (state.network === '1') {
+  if (state.network === "1") {
     return render([
-
-      h('section.container', [
-        h('div.panel.panel-default', [
-          h('div.panel-heading', [
-            h('h3', 'network'),
-          ]),
-          h('div.panel-body', [
-            'currently on mainnet - please select the correct test network',
-          ]),
-        ]),
-      ]),
-
-    ])
+      h("section.container", [
+        h("div.panel.panel-default", [
+          h("div.panel-heading", [h("h3", "network")]),
+          h("div.panel-body", [
+            "currently on mainnet - please select the correct test network"
+          ])
+        ])
+      ])
+    ]);
   }
 
   // render faucet ui
   render([
-
-    h('nav.navbar.navbar-default', [
-      h('h1.container-fluid', 'MetaMask Ether Faucet'),
+    h("nav.navbar.navbar-default", [
+      h("h1.container-fluid", "Quantstamp Test DAI Faucet")
     ]),
 
-    h('section.container', [
-
-      h('div.panel.panel-default', [
-        h('div.panel-heading', [
-          h('h3', 'faucet'),
-        ]),
-        h('div.panel-body', [
-          h('div', 'address: '+state.faucetAddress),
-          h('div', 'balance: '+formatBalance(state.faucetBalance)),
-          h('button.btn.btn-success', 'request 1 ether from faucet', {
-            style: {
-              margin: '4px',
-            },
-            // disabled: state.userAddress ? null : true,
-            click: getEther,
-          }),
-        ]),
+    h("section.container", [
+      h("div.panel.panel-default", [
+        h("div.panel-heading", [h("h3", "Faucet")]),
+        h("div.panel-body", [
+          h("div", "address: " + state.faucetAddress),
+          h("div", "balance: " + formatBalance(state.faucetBalance)),
+          h(
+            "button.btn.btn-success",
+            `request ${config.amount} Test DAI from faucet`,
+            {
+              style: {
+                margin: "4px"
+              },
+              // disabled: state.userAddress ? null : true,
+              click: getDai
+            }
+          )
+        ])
       ]),
 
-      h('div.panel.panel-default', [
-        h('div.panel-heading', [
-          h('h3', 'user'),
-        ]),
-        h('div.panel-body', [
-          h('div', 'address: '+state.userAddress),
-          h('div', 'balance: '+formatBalance(state.fromBalance)),
-          h('div', 'donate to faucet:'),
-          h('button.btn.btn-warning', '1 ether', {
+      h("div.panel.panel-default", [
+        h("div.panel-heading", [h("h3", "User")]),
+        h("div.panel-body", [
+          h("div", "address: " + state.userAddress),
+          h("div", "balance: " + formatBalance(state.fromBalance)),
+          h("div", "donate to faucet:"),
+          h("button.btn.btn-warning", "1 Test DAI", {
             style: {
-              margin: '4px',
+              margin: "4px"
             },
             // disabled: state.userAddress ? null : true,
-            click: sendTx.bind(null, 1),
+            click: sendTx.bind(null, 1)
           }),
-          h('button.btn.btn-warning', '10 ether', {
+          h("button.btn.btn-warning", "10 Test DAI", {
             style: {
-              margin: '4px',
+              margin: "4px"
             },
             // disabled: state.userAddress ? null : true,
-            click: sendTx.bind(null, 10),
+            click: sendTx.bind(null, 10)
           }),
-          h('button.btn.btn-warning', '100 ether', {
+          h("button.btn.btn-warning", "100 Test DAI", {
             style: {
-              margin: '4px',
+              margin: "4px"
             },
             // disabled: state.userAddress ? null : true,
-            click: sendTx.bind(null, 100),
+            click: sendTx.bind(null, 100)
           }),
-        ]),
-      ]),
-
-      h('div.panel.panel-default', [
-        h('div.panel-heading', [
-          h('h3', 'transactions'),
-        ]),
-        h('div.panel-body', {
-          style: {
-            'flex-direction': 'column',
-            display: 'flex',
-          }
-        }, (
-          state.transactions.map((txHash) => {
-            return link(`https://ropsten.etherscan.io/tx/${txHash}`, txHash)
+          h("button.btn.btn-warning", `ALL Test DAI`, {
+            style: {
+              margin: "4px"
+            },
+            // disabled: state.userAddress ? null : true,
+            click: sendTx.bind(null, state.fromBalance)
           })
-        ))
+        ])
       ]),
 
+      h("div.panel.panel-default", [
+        h("div.panel-heading", [h("h3", "transactions")]),
+        h(
+          "div.panel-body",
+          {
+            style: {
+              "flex-direction": "column",
+              display: "flex"
+            }
+          },
+          state.transactions.map(txHash => {
+            if (txHash.type === "in") {
+              return link(
+                `https://ropsten.etherscan.io/tx/${txHash.hash}`,
+                `100 Test DAI is on its way to your account | See the following tx for details: ${txHash.hash}`
+              );
+            } else {
+              return link(`https://ropsten.etherscan.io/tx/${txHash}`, txHash);
+            }
+          })
+        )
+      ])
     ]),
+    state.errorMessage
+      ? h("div", { style: { color: "red" } }, state.errorMessage)
+      : null
+  ]);
+};
 
-    state.errorMessage ? h('div', { style: { color: 'red', } }, state.errorMessage) : null,
-
-  ])
+function link(url, content) {
+  return h("a", { href: url, target: "_blank" }, content);
 }
 
-function link(url, content){
-  return h('a', { href: url, target: '_blank' }, content)
-}
-
-function getEther(){
-
-  requestAccounts()
-  .then(function (account) {
-
+const getDai = () => {
+  requestAccounts().then(account => {
     // We already prompted to unlock in requestAccounts()
-    if (!account) return
+    if (!account) return;
 
-    var uri = window.location.href
-    var http = new XMLHttpRequest()
-    var data = account
+    const uri = window.location.href;
+    const http = new XMLHttpRequest();
+    const data = account;
 
-    xhr({
-      method: 'POST',
-      body: data,
-      uri: uri,
-      headers: {
-        'Content-Type': 'application/rawdata',
-      }
-    }, function (err, resp, body) {
-      // display error
-      if (err) {
-        state.errorMessage = err || err.stack
-        return
-      }
-      // display error-in-body
-      try {
-        if (body.slice(0,2) === '0x') {
-          state.transactions.push(body)
-        } else {
-          state.errorMessage = body
+    xhr(
+      {
+        method: "POST",
+        body: data,
+        uri: uri,
+        headers: {
+          "Content-Type": "application/rawdata"
         }
-      } catch (err) {
-        state.errorMessage = err || err.stack
+      },
+      (err, resp, body) => {
+        // display error
+        if (err) {
+          state.errorMessage = err || err.stack;
+          return;
+        }
+        // display error-in-body
+        try {
+          if (body.slice(0, 2) === "0x") {
+            state.transactions.push({ hash: body, type: "in" });
+          } else {
+            state.errorMessage = body;
+          }
+        } catch (err) {
+          state.errorMessage = err || err.stack;
+        }
+        // display tx hash
+        console.log("faucet response:", body);
+        updateStateFromNetwork();
       }
-      // display tx hash
-      console.log('faucet response:', body)
-      updateStateFromNetwork()
-    })
-  })
-}
+    );
+  });
+};
 
-function sendTx(value){
-  requestAccounts()
-  .then((address) => {
-    if (!address) return
+const sendTx = amount => {
+  requestAccounts().then(address => {
+    if (!address) return;
 
-    global.ethQuery.sendTransaction({
-      from: address,
-      to: state.faucetAddress,
-      value: '0x'+(value*1e18).toString(16),
-    }, function(err, txHash){
-      if (err) {
-        state.errorMessage = (err && err.stack)
-      } else {
-        console.log('user sent tx:', txHash)
-        state.errorMessage = null
-        state.transactions.push(txHash)
-      }
-      updateStateFromNetwork()
-    })
-  })
-}
+    const daiAmountWei = web3.utils.toWei(amount.toString(), "ether");
 
-function render(elements){
-  if (!Array.isArray(elements)) elements = [elements]
-  elements = elements.filter(Boolean)
+    contract.methods
+      .transfer(state.faucetAddress, daiAmountWei.toString())
+      .send({ from: state.userAddress })
+      .on("transactionHash", txHash => {
+        console.log("user sent tx:", txHash);
+        state.errorMessage = null;
+        state.transactions.push(txHash);
+      })
+      .on("error", err => {
+        state.errorMessage = err;
+      });
+    updateStateFromNetwork();
+  });
+};
+
+const render = elements => {
+  if (!Array.isArray(elements)) elements = [elements];
+  elements = elements.filter(Boolean);
   // clear
-  document.body.innerHTML = ''
+  document.body.innerHTML = "";
   // insert
-  elements.forEach(function(element){
-    document.body.appendChild(element)
-  })
-}
+  elements.forEach(function(element) {
+    document.body.appendChild(element);
+  });
+};
 
-function formatBalance(balance){
-  return balance ? balance+' ether' : '...'
-}
+const formatBalance = balance => {
+  return balance ? balance + " Test DAI" : "...";
+};

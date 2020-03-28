@@ -1,78 +1,57 @@
-const MASCARA_SUPPORT = process.env.MASCARA_SUPPORT
-const PORT = process.env.PORT || 9000
+const PORT = process.env.PORT || 9000;
+const MASCARA_SUPPORT = process.env.MASCARA_SUPPORT;
+const fs = require("fs");
+const express = require("express");
+const Browserify = require("browserify");
+const envify = require("envify/custom");
+const bodyParser = require("body-parser");
+const cors = require("cors");
+const RateLimit = require("express-rate-limit");
+const geoIp = require("@pablopunk/geo-ip");
+const emojiFlag = require("emoji-flag");
+const { didError, deliverApp, deliverPage } = require("./helpers/server.js");
+const { refuelAccount, getDaiTokenInWallet } = require("./helpers/blockchain");
 
-// log unhandled promise rejections
-process.on('unhandledRejection', error => {
-  console.error('unhandledRejection', error)
-})
+const regularPageCode = fs.readFileSync(__dirname + "/index.html", "utf-8");
+const mascaraPageCode = fs.readFileSync(__dirname + "/zero.html", "utf-8");
+const pageCode = MASCARA_SUPPORT ? mascaraPageCode : regularPageCode;
 
-const fs = require('fs')
-const express = require('express')
-const Browserify = require('browserify')
-const envify = require('envify/custom')
-const bodyParser = require('body-parser')
-const cors = require('cors')
-const RateLimit = require('express-rate-limit')
-const EthQuery = require('ethjs-query')
-const BN = require('bn.js')
-const ethUtil = require('ethereumjs-util')
-const geoIp = require('@pablopunk/geo-ip')
-const emojiFlag = require('emoji-flag')
+const config = require("./get-config");
 
-const config = require('./get-config')
-const rpcWrapperEngine = require('./index.js')
-const regularPageCode = fs.readFileSync(__dirname + '/index.html', 'utf-8')
-const mascaraPageCode = fs.readFileSync(__dirname + '/zero.html', 'utf-8')
-const pageCode = MASCARA_SUPPORT ? mascaraPageCode : regularPageCode
+const min = 60 * 1000;
+const faucetAmountWei = config.amount * Math.pow(10, config.decimals);
+const AUTO_RESTART_INTERVAL = 60 * min;
 
-const min = 60 * 1000
-const ether = 1e18
-const faucetAmountWei = (1 * ether)
-const EtherBN = new BN('1000000000000000000', 10)
-const MAX_BALANCE = EtherBN.mul(new BN('4', 10))
-const AUTO_RESTART_INTERVAL = 60 * min
+console.log("[FAUCET] Acting as faucet for address:", config.address);
 
-console.log('Acting as faucet for address:', config.address)
-
-//
-// create engine
-//
-
-// ProviderEngine based caching layer, with fallback to geth
-const engine = rpcWrapperEngine({
-  rpcUrl: config.rpcOrigin,
-  addressHex: config.address,
-  privateKey: ethUtil.toBuffer(config.privateKey),
-})
-
-const ethQuery = new EthQuery(engine)
 
 // prepare app bundle
-const browserify = Browserify()
+const browserify = Browserify();
 // inject faucet address
-browserify.transform(envify({
-  FAUCET_ADDRESS: config.address,
-}))
+browserify.transform(
+  envify({
+    FAUCET_ADDRESS: config.address
+  })
+);
 // build app
-browserify.add(__dirname + '/app.js')
-browserify.bundle(function(err, bundle){
-  if (err) throw err
-  const appCode = bundle.toString()
-  startServer(appCode)
-})
+browserify.add(__dirname + "/app.js");
+browserify.bundle(function(err, bundle) {
+  if (err) throw err;
+  const appCode = bundle.toString();
+  startServer(appCode);
+});
 
 //
 // create webserver
 //
-function startServer(appCode) {
-
-  const app = express()
+const startServer = appCode => {
+  const app = express();
   // set CORS headers
-  app.use(cors())
+  app.use(cors());
   // parse body
-  app.use(bodyParser.text({ type: '*/*' }))
+  app.use(bodyParser.text({ type: "*/*" }));
   // trust the "x-forwarded-for" header from our reverse proxy
-  app.enable('trust proxy')
+  app.enable("trust proxy");
 
   // configure rate limiter
   const rateLimiter = new RateLimit({
@@ -81,114 +60,106 @@ function startServer(appCode) {
     // limit each IP to N requests per windowMs
     max: 20,
     // disable delaying - full speed until the max limit is reached
-    delayMs: 200,
-  })
+    delayMs: 200
+  });
 
-  // serve app
-  app.get('/', deliverPage)
-  app.get('/index.html', deliverPage)
-  app.get('/app.js', deliverApp)
-
-  // add IP-based rate limiting
-  app.post('/', rateLimiter)
-  // handle fauceting request
-  app.post('/', handleRequest)
-
-  // start server
-  const server = app.listen(PORT, function(){
-    console.log('ethereum rpc listening on', PORT)
-    console.log('and proxying to', config.rpcOrigin)
-  })
-
-  setupGracefulShutdown(server)
-
-  // Lazy nonce tracking fix:
-  // Force an exit (docker will trigger a restart)
-  setTimeout(() => {
-    console.log('Restarting for better nonce tracking')
-    shutdown()
-  }, AUTO_RESTART_INTERVAL)
-
-  return
-
-
-  async function handleRequest (req, res) {
+  handleRequest = async (req, res) => {
     try {
       // parse ip-address
       const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress
 
       let flag
+      const ipAddress =
+        req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+      
       try {
-        const geoData = geoIp({ ip: ipAddress })
-        const countryCode = geoData.country_code
-        flag = emojiFlag(countryCode) + ' '
+        const geoData = geoIp({ ip: ipAddress });
+        const countryCode = geoData.country_code;
+        flag = emojiFlag(countryCode) + " ";
       } catch (err) {
-        flag = '  '
+        flag = "  ";
       }
 
       // parse address
-      const targetAddress = req.body
-      if (targetAddress.slice(0,2) !== '0x') {
-        targetAddress = '0x'+targetAddress
+      const targetAddress = req.body;
+      if (targetAddress.slice(0, 2) !== "0x") {
+        targetAddress = "0x" + targetAddress;
       }
       if (targetAddress.length !== 42) {
-        return didError(res, new Error(`Address parse failure - "${targetAddress}"`))
+        return didError(
+          res,
+          new Error(`Address parse failure - "${targetAddress}"`)
+        );
       }
 
-      const alignedIpAddress = ipAddress.padStart(15, ' ')
-      const requestorMessage = `${flag} ${alignedIpAddress} requesting for ${targetAddress}`
+      const alignedIpAddress = ipAddress.padStart(15, " ");
+      const requestorMessage = `${flag} ${alignedIpAddress} requesting for ${targetAddress}`;
 
       // check for greediness
-      const balance = await ethQuery.getBalance(targetAddress, 'pending')
-      const balanceTooFull = balance.gt(MAX_BALANCE)
+      const balance = await getDaiTokenInWallet(targetAddress);
+      const balanceTooFull = balance >= config.maxBalance;
+
       if (balanceTooFull) {
-        console.log(`${requestorMessage} - already has too much ether`)
-        return didError(res, new Error('User is greedy - already has too much ether'))
+        console.log(
+          `[FAUCET] ${requestorMessage} - already has too many Test DAI`
+        );
+        return didError(
+          res,
+          new Error("[FAUCET] User is greedy - already has too many Test DAI")
+        );
       }
+
       // send value
-      const txHash = await ethQuery.sendTransaction({
-        to: targetAddress,
-        from: config.address,
-        value: faucetAmountWei,
-        data: '',
-      })
-      console.log(`${requestorMessage} - sent tx: ${txHash}`)
-      res.send(txHash)
+      refuelAccount(faucetAmountWei, targetAddress, (err, txHash) => {
+        // this is an ugly workaround needed because web3 may throw an error after giving us a txHash
+        if (res.finished) return;
 
+        if (err) {
+          res.end(`${err}\n`);
+        }
+        if (txHash) {
+          res.send(txHash);
+        }
+      });
     } catch (err) {
-      console.error(err.stack)
-      return didError(res, err)
+      console.error(err.stack);
+      return didError(res, err);
     }
-  }
+  };
 
-  function didError(res, err){
-    res.status(500).json({ error: err.message })
-  }
+  // Lazy nonce tracking fix:
+  // Force an exit (docker will trigger a restart)
+  setTimeout(() => {
+    console.log("[SERVER] Restarting for better nonce tracking");
+    shutdown();
+  }, AUTO_RESTART_INTERVAL);
 
-  function invalidRequest(res){
-    res.status(400).json({ error: 'Not a valid request.' })
-  }
-
-  function deliverPage(req, res){
-    res.status(200).send(pageCode)
-  }
-
-  function deliverApp(req, res){
-    res.status(200).send(appCode)
-  }
+  // serve app
+  app.get("/", (req, res) => deliverPage(req, res, pageCode));
+  app.get("/index.html", (req, res) => deliverPage(req, res, pageCode));
+  app.get("/app.js", (req, res) => deliverApp(req, res, appCode));
 
   function setupGracefulShutdown() {
     process.once('SIGTERM', shutdown)
     process.once('SIGINT', shutdown)
   }
+  // add IP-based rate limiting
+  app.post("/", rateLimiter);
+  // handle fauceting request
+  app.post("/", handleRequest);
 
   // Do graceful shutdown
-  function shutdown() {
-    console.log('gracefully shutting down...')
+  const shutdown = () => {
+    console.log("[SERVER] Gracefully shutting down...");
     server.close(() => {
-      console.log('shut down complete.')
-      process.exit(0)
-    })
-  }
+      console.log("[SERVER] Shut down complete.");
+      process.exit(0);
+    });
+  };
 
-}
+  // start server
+  const server = app.listen(PORT, () => {
+    console.log("[SERVER] Ethereum rpc listening on", PORT);
+    console.log("and proxying to", config.rpcOrigin);
+  });
+};
