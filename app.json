@@ -8,6 +8,9 @@
     }
   ],
   "env": {
+    "INFURA_KEY": {
+      "required": true
+    },
     "PRIVATE_KEY": {
       "required": true
     },
