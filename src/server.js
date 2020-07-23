@@ -10,7 +10,7 @@ const RateLimit = require('express-rate-limit')
 const geoIp = require('@pablopunk/geo-ip')
 const emojiFlag = require('emoji-flag')
 const { didError, deliverApp, deliverPage } = require('./helpers/server.js')
-const { refuelAccount, getDaiTokenInWallet } = require('./helpers/blockchain')
+const { refuelAccount, getTokenInWallet } = require('./helpers/blockchain')
 
 const regularPageCode = fs.readFileSync(__dirname + '/index.html', 'utf-8')
 const mascaraPageCode = fs.readFileSync(__dirname + '/zero.html', 'utf-8')
@@ -94,16 +94,16 @@ const startServer = appCode => {
       const requestorMessage = `${flag} ${alignedIpAddress} requesting for ${targetAddress}`
 
       // check for greediness
-      const balance = await getDaiTokenInWallet(targetAddress)
+      const balance = await getTokenInWallet(targetAddress)
       const balanceTooFull = balance >= config.maxBalance
 
       if (balanceTooFull) {
         console.log(
-          `[FAUCET] ${requestorMessage} - already has too many Test DAI`
+          `[FAUCET] ${requestorMessage} - already has too many Test ${config.tokenName}`
         )
         return didError(
           res,
-          new Error('[FAUCET] User is greedy - already has too many Test DAI')
+          new Error(`[FAUCET] User is greedy - already has too many Test ${config.tokenName}`)
         )
       }
 

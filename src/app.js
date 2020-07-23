@@ -3,15 +3,15 @@ const xhr = require("xhr");
 const EthQuery = require("eth-query");
 const metamask = require("metamascara");
 const config = require("./get-config");
-const daiToken = require("../dai_token_abi");
-const { getDaiTokenInWallet } = require("./helpers/blockchain");
+const tokenAbi = require("../token_abi.json");
+const { getTokenInWallet } = require("./helpers/blockchain");
 const Web3 = require("web3");
 let web3, contract;
 
 const REFRESH_INTERVAL_MS = 4000;
 
 web3 = new Web3(Web3.givenProvider);
-contract = new web3.eth.Contract(daiToken, config.tokenAddress, {
+contract = new web3.eth.Contract(tokenAbi, config.tokenAddress, {
   from: config.address
 });
 
@@ -120,14 +120,14 @@ const requestAccounts = () => {
 
 const getBalances = () => {
   if (state.faucetAddress) {
-    getDaiTokenInWallet(state.faucetAddress).then(balance => {
+    getTokenInWallet(state.faucetAddress).then(balance => {
       state.faucetBalance = balance;
       renderApp();
     });
   }
 
   if (state.userAddress) {
-    getDaiTokenInWallet(state.userAddress).then(balance => {
+    getTokenInWallet(state.userAddress).then(balance => {
       state.fromBalance = balance;
       renderApp();
     });
@@ -156,7 +156,7 @@ const renderApp = () => {
   // render faucet ui
   render([
     h("nav.navbar.navbar-default", [
-      h("h1.container-fluid", "Quantstamp Test DAI Faucet")
+      h("h1.container-fluid", `Quantstamp Test ${config.tokenName} Faucet`)
     ]),
 
     h("section.container", [
@@ -167,13 +167,13 @@ const renderApp = () => {
           h("div", "balance: " + formatBalance(state.faucetBalance)),
           h(
             "button.btn.btn-success",
-            `request ${config.amount} Test DAI from faucet`,
+            `request ${config.amount} Test ${config.tokenName} from faucet`,
             {
               style: {
                 margin: "4px"
               },
               // disabled: state.userAddress ? null : true,
-              click: getDai
+              click: getToken
             }
           )
         ])
@@ -185,28 +185,28 @@ const renderApp = () => {
           h("div", "address: " + state.userAddress),
           h("div", "balance: " + formatBalance(state.fromBalance)),
           h("div", "donate to faucet:"),
-          h("button.btn.btn-warning", "1 Test DAI", {
+          h("button.btn.btn-warning", `1 Test ${config.tokenName}`, {
             style: {
               margin: "4px"
             },
             // disabled: state.userAddress ? null : true,
             click: sendTx.bind(null, 1)
           }),
-          h("button.btn.btn-warning", "10 Test DAI", {
+          h("button.btn.btn-warning", `10 Test ${config.tokenName}`, {
             style: {
               margin: "4px"
             },
             // disabled: state.userAddress ? null : true,
             click: sendTx.bind(null, 10)
           }),
-          h("button.btn.btn-warning", "100 Test DAI", {
+          h("button.btn.btn-warning", `100 Test ${config.tokenName}`, {
             style: {
               margin: "4px"
             },
             // disabled: state.userAddress ? null : true,
             click: sendTx.bind(null, 100)
           }),
-          h("button.btn.btn-warning", `ALL Test DAI`, {
+          h("button.btn.btn-warning", `ALL Test ${config.tokenName}`, {
             style: {
               margin: "4px"
             },
@@ -217,7 +217,7 @@ const renderApp = () => {
       ]),
 
       h("div.panel.panel-default", [
-        h("div.panel-heading", [h("h3", "transactions")]),
+        h("div.panel-heading", [h("h3", "Transactions")]),
         h(
           "div.panel-body",
           {
@@ -230,7 +230,7 @@ const renderApp = () => {
             if (txHash.type === "in") {
               return link(
                 `https://ropsten.etherscan.io/tx/${txHash.hash}`,
-                `100 Test DAI is on its way to your account | See the following tx for details: ${txHash.hash}`
+                `100 Test ${config.tokenName} is on its way to your account | See the following tx for details: ${txHash.hash}`
               );
             } else {
               return link(`https://ropsten.etherscan.io/tx/${txHash}`, txHash);
@@ -249,7 +249,7 @@ function link(url, content) {
   return h("a", { href: url, target: "_blank" }, content);
 }
 
-const getDai = () => {
+const getToken = () => {
   requestAccounts().then(account => {
     // We already prompted to unlock in requestAccounts()
     if (!account) return;
@@ -295,10 +295,10 @@ const sendTx = amount => {
   requestAccounts().then(address => {
     if (!address) return;
 
-    const daiAmountWei = web3.utils.toWei(amount.toString(), "ether");
+    const tokenAmountWei = web3.utils.toWei(amount.toString(), "ether");
 
     contract.methods
-      .transfer(state.faucetAddress, daiAmountWei.toString())
+      .transfer(state.faucetAddress, tokenAmountWei.toString())
       .send({ from: state.userAddress })
       .on("transactionHash", txHash => {
         console.log("user sent tx:", txHash);
@@ -324,5 +324,5 @@ const render = elements => {
 };
 
 const formatBalance = balance => {
-  return balance ? balance + " Test DAI" : "...";
+  return balance ? balance + ` Test ${config.tokenName}` : "...";
 };

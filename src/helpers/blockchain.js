@@ -1,11 +1,11 @@
 const Web3 = require("web3");
-const daiToken = require("../../dai_token_abi.json");
+const tokenAbi = require("../../token_abi.json");
 const config = require("../get-config");
 
 let web3, nonce;
 web3 = new Web3(new Web3.providers.HttpProvider(config.rpcOrigin));
 
-const daiContract = new web3.eth.Contract(daiToken, config.tokenAddress);
+const tokenContract = new web3.eth.Contract(tokenAbi, config.tokenAddress);
 console.log(`[WEB3] Contract initialized at ${config.tokenAddress}`);
 
 // sends some tokens to the given account <userAddr>, invokes the given callback with the resulting transaction hash
@@ -26,7 +26,7 @@ const refuelAccount = async (faucetAmountWei, userAddr, callback) => {
     from: config.address,
     to: config.tokenAddress,
     nonce,
-    data: daiContract.methods
+    data: tokenContract.methods
       .transfer(userAddr, web3.utils.toBN(faucetAmountWei).toString())
       .encodeABI(),
     gas: config.gas
@@ -61,8 +61,8 @@ const refuelAccount = async (faucetAmountWei, userAddr, callback) => {
     });
 };
 
-const getDaiTokenInWallet = async walletAddress => {
-  const balance = await getBalance(daiContract, walletAddress);
+const getTokenInWallet = async walletAddress => {
+  const balance = await getBalance(tokenContract, walletAddress);
   return web3.utils.fromWei(web3.utils.toBN(balance));
 };
 
@@ -70,10 +70,10 @@ const getBalance = (contract, walletAddress) =>
   contract.methods
     .balanceOf(walletAddress)
     .call()
-    .then(dai => dai);
+    .then(token => token);
 
 module.exports = {
   refuelAccount,
-  getDaiTokenInWallet,
+  getTokenInWallet,
   getBalance
 };
