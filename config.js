@@ -8,7 +8,7 @@ module.exports = {
     tokenAddress: process.env.TOKEN_ADDRESS,
     tokenName: process.env.TOKEN_NAME,
     amount: 100,
-    decimals: 18,
+    decimals: 6,
     gas: 60000,
     maxBalance: 1000
   }
