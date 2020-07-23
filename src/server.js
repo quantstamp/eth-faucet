@@ -18,6 +18,13 @@ const BN = require('bn.js')
 const ethUtil = require('ethereumjs-util')
 const geoIp = require('@pablopunk/geo-ip')
 const emojiFlag = require('emoji-flag')
+const { didError, deliverApp, deliverPage } = require('./helpers/server.js')
+const { refuelAccount, getUsdcTokenInWallet } = require('./helpers/blockchain')
+
+const regularPageCode = fs.readFileSync(__dirname + '/index.html', 'utf-8')
+const mascaraPageCode = fs.readFileSync(__dirname + '/zero.html', 'utf-8')
+const pageCode = MASCARA_SUPPORT ? mascaraPageCode : regularPageCode
+
 const config = require('./get-config')
 const rpcWrapperEngine = require('./engine.js')
 
@@ -126,11 +133,17 @@ function startServer () {
       const requestorMessage = `${flag} ${alignedIpAddress} requesting for ${targetAddress}`
 
       // check for greediness
-      const balance = await ethQuery.getBalance(targetAddress, 'pending')
-      const balanceTooFull = balance.gt(MAX_BALANCE)
+      const balance = await getUsdcTokenInWallet(targetAddress)
+      const balanceTooFull = balance >= config.maxBalance
+
       if (balanceTooFull) {
-        console.log(`${requestorMessage} - already has too much ether`)
-        return didError(res, new Error('User is greedy - already has too much ether'))
+        console.log(
+          `[FAUCET] ${requestorMessage} - already has too many Test USDC`
+        )
+        return didError(
+          res,
+          new Error('[FAUCET] User is greedy - already has too many Test USDC')
+        )
       }
       // send value
       const txHash = await ethQuery.sendTransaction({
