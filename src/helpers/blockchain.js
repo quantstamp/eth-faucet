@@ -63,7 +63,7 @@ const refuelAccount = async (faucetAmountWei, userAddr, callback) => {
 
 const getTokenInWallet = async walletAddress => {
   const balance = await getBalance(tokenContract, walletAddress);
-  return web3.utils.fromWei(web3.utils.toBN(balance));
+  return web3.utils.fromWei(web3.utils.toBN(balance),'picoether');
 };
 
 const getBalance = (contract, walletAddress) =>

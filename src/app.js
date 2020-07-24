@@ -295,7 +295,7 @@ const sendTx = amount => {
   requestAccounts().then(address => {
     if (!address) return;
 
-    const tokenAmountWei = web3.utils.toWei(amount.toString(), "ether");
+    const tokenAmountWei = web3.utils.toWei(amount.toString(), "picoether");
 
     contract.methods
       .transfer(state.faucetAddress, tokenAmountWei.toString())
